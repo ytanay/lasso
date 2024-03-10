@@ -25,6 +25,16 @@ pub unsafe trait Key: Copy + Eq {
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
+    derive(rkyv::Archive),
+    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+)]
 #[repr(transparent)]
 pub struct LargeSpur {
     key: NonZeroUsize,
@@ -84,6 +94,17 @@ impl Debug for LargeSpur {
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize),
+    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+)]
+#[archive(check_bytes)]
 #[repr(transparent)]
 pub struct Spur {
     key: NonZeroU32,
@@ -144,6 +165,16 @@ impl Debug for Spur {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
+#[cfg_attr(
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
+    derive(rkyv::Archive),
+    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+)]
 pub struct MiniSpur {
     key: NonZeroU16,
 }
@@ -203,6 +234,16 @@ impl Debug for MiniSpur {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
+#[cfg_attr(
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
+    derive(rkyv::Archive),
+    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+)]
 pub struct MicroSpur {
     key: NonZeroU8,
 }
