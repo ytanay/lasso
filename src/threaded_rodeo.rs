@@ -13,7 +13,7 @@ use core::{
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dashmap::{DashMap, mapref::entry::Entry, SharedValue};
+use dashmap::{mapref::entry::Entry, DashMap, SharedValue};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 macro_rules! index_unchecked_mut {
@@ -322,8 +322,8 @@ where
             let shard_key = self.map.determine_shard(self.map.hash_usize(&string_slice));
             // Grab the shard and a write lock on it.
             let mut shard = self.map.shards().get(shard_key).unwrap().write();
-            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do. 
-            // Just return the value, which is the key go to use to resolve the string. If we 
+            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do.
+            // Just return the value, which is the key go to use to resolve the string. If we
             // get `None`, an entry for the string doesn't exist yet. Store string in the arena,
             // update the maps accordingly, and return the key.
             let key = match shard.get(string_slice) {
@@ -331,10 +331,10 @@ where
                 None => {
                     // Safety: The drop impl removes all references before the arena is dropped
                     let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
-                    
+
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-                    
+
                     self.strings.insert(key, string);
                     shard.insert(string, SharedValue::new(key));
 
@@ -403,11 +403,8 @@ where
         if let Some(key) = self.map.get(string) {
             Ok(*key)
         } else {
-
             let key = match self.map.entry(string) {
-                Entry::Occupied(o) => {
-                    *o.get()
-                }
+                Entry::Occupied(o) => *o.get(),
                 Entry::Vacant(v) => {
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
@@ -930,43 +927,52 @@ compile! {
     }
 }
 
-#[cfg(feature = "serialize")]
-impl<K, H> Serialize for ThreadedRodeo<K, H>
+#[cfg(any(feature = "serialize", feature = "rkyv"))]
+#[cfg_attr(
+    serialize,
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
+#[cfg_attr(
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
+    derive(rkyv::Archive)
+)]
+struct SerializableRodeo<K: Eq + Hash + Key>(HashMap<String, K>);
+
+#[cfg(any(feature = "serialize", feature = "rkyv"))]
+impl<K, H> From<&ThreadedRodeo<K, H>> for SerializableRodeo<K>
 where
-    K: Copy + Eq + Hash + Serialize,
+    K: Eq + Hash + Key,
     H: Clone + BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Serialize all of self as a `HashMap<String, K>`
-        let mut map = HashMap::with_capacity(self.map.len());
-        for entry in self.map.iter() {
-            map.insert(*entry.key(), entry.value().to_owned());
+    fn from(rodeo: &ThreadedRodeo<K, H>) -> Self {
+        let mut map = HashMap::with_capacity(rodeo.strings.len());
+        for entry in rodeo.strings.iter() {
+            map.insert(entry.value().to_string(), *entry.key());
         }
 
-        map.serialize(serializer)
+        Self(map)
     }
 }
 
-#[cfg(feature = "serialize")]
-impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<K, S>
+#[cfg(any(feature = "serialize", feature = "rkyv"))]
+impl<K, S> From<SerializableRodeo<K>> for ThreadedRodeo<K, S>
 where
-    K: Key + Eq + Hash + Deserialize<'de>,
-    S: BuildHasher + Clone + Default,
+    K: Eq + Hash + Key,
+    S: Clone + BuildHasher + Default,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let deser_map: HashMap<String, K> = HashMap::deserialize(deserializer)?;
+    fn from(SerializableRodeo(deser_map): SerializableRodeo<K>) -> Self {
         let capacity = {
             let total_bytes = deser_map.keys().map(|s| s.len()).sum::<usize>();
-            let total_bytes =
-                NonZeroUsize::new(total_bytes).unwrap_or_else(|| Capacity::default().bytes());
+            let total_bytes = core::num::NonZeroUsize::new(total_bytes)
+                .unwrap_or_else(|| Capacity::default().bytes());
 
             Capacity::new(deser_map.len(), total_bytes)
         };
@@ -994,12 +1000,42 @@ where
             strings.insert(key, allocated);
         }
 
-        Ok(Self {
+        Self {
             map,
             strings,
             key: AtomicUsize::new(highest),
             arena,
-        })
+        }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<K, H> Serialize for ThreadedRodeo<K, H>
+where
+    K: Copy + Eq + Hash + Serialize + Key,
+    H: Clone + BuildHasher,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        SerializableRodeo::from(self).0.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<K, S>
+where
+    K: Key + Eq + Hash + Deserialize<'de>,
+    S: BuildHasher + Clone + Default,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(SerializableRodeo(HashMap::deserialize(deserializer)?).into())
     }
 }
 
