@@ -20,10 +20,8 @@ no-std = ["ahasher"]
 multi-threaded = ["dashmap"]
 ahasher = ["ahash"]
 serialize = ["serde", "hashbrown/serde"]
-rkyv = ["dep:rkyv", "rkyv/size_32"]
-rkyv-16 = ["dep:rkyv", "rkyv?/size_16"]
-rkyv-32 = ["dep:rkyv", "rkyv?/size_32"]
-rkyv-64 = ["dep:rkyv", "rkyv?/size_64"]
+rkyv = ["dep:rkyv", "rkyv/pointer_width_32"]
+rkyv-64 = ["dep:rkyv", "rkyv?/pointer_width_64"]
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
@@ -51,7 +49,7 @@ features = ["alloc"]
 optional = true
 
 [dependencies.rkyv]
-version = "0.7.44"
+version = "0.8"
 default-features = false
 optional = true
 
