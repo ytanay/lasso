@@ -20,6 +20,8 @@ no-std = ["ahasher"]
 multi-threaded = ["dashmap"]
 ahasher = ["ahash"]
 serialize = ["serde", "hashbrown/serde"]
+rkyv = ["dep:rkyv", "rkyv/pointer_width_32"]
+rkyv-64 = ["dep:rkyv", "rkyv?/pointer_width_64"]
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
@@ -44,6 +46,11 @@ features = ["raw"]
 version = "1.0.123"
 default-features = false
 features = ["alloc"]
+optional = true
+
+[dependencies.rkyv]
+version = "0.8"
+default-features = false
 optional = true
 
 # Provides abomonation support for keys, enabled with the `abomonation` feature
