@@ -33,7 +33,7 @@ pub unsafe trait Key: Copy + Eq {
         feature = "rkyv-64"
     ),
     derive(rkyv::Archive),
-    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+    rkyv(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
 )]
 #[repr(transparent)]
 pub struct LargeSpur {
@@ -102,7 +102,7 @@ impl Debug for LargeSpur {
         feature = "rkyv-64"
     ),
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize),
-    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+    rkyv(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
 )]
 #[repr(transparent)]
 pub struct Spur {
@@ -172,7 +172,7 @@ impl Debug for Spur {
         feature = "rkyv-64"
     ),
     derive(rkyv::Archive),
-    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+    rkyv(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
 )]
 pub struct MiniSpur {
     key: NonZeroU16,
@@ -241,7 +241,7 @@ impl Debug for MiniSpur {
         feature = "rkyv-64"
     ),
     derive(rkyv::Archive),
-    archive_attr(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
+    rkyv(derive(Ord, Eq, PartialEq, PartialOrd, Hash))
 )]
 pub struct MicroSpur {
     key: NonZeroU8,
